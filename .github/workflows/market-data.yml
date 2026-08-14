@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   update:
@@ -25,3 +26,7 @@ jobs:
           git add github-src/public/data/market.json
           git diff --cached --quiet || git commit -m "data: refresh A-share snapshot"
           git push
+      - name: Publish refreshed website
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml --ref main

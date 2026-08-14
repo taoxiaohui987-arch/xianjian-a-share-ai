@@ -16,13 +16,15 @@ PARAMS = {
     "fid": "f3", "fs": "m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048", "fields": FIELDS,
 }
 rows = []
+hosts = ["82", "56", "72", "80", "20", "15"]
 for page in range(1, 80):
     params = {**PARAMS, "pn": str(page)}
-    url = "https://82.push2.eastmoney.com/api/qt/clist/get?" + urllib.parse.urlencode(params)
-    request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://quote.eastmoney.com/"})
     batch = None
     for attempt in range(3):
         try:
+            host = hosts[(page + attempt) % len(hosts)]
+            url = f"https://{host}.push2.eastmoney.com/api/qt/clist/get?" + urllib.parse.urlencode(params)
+            request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://quote.eastmoney.com/"})
             with urllib.request.urlopen(request, timeout=30) as response:
                 batch = json.load(response).get("data", {}).get("diff", [])
             break
@@ -35,7 +37,7 @@ for page in range(1, 80):
     if not batch:
         break
     rows.extend(batch)
-    time.sleep(0.15)
+    time.sleep(0.4)
     if len(batch) < 100:
         break
 
