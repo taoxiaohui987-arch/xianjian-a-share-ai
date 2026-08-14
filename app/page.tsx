@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const stocks = [
   { code: "600519", exchange: "SH", name: "贵州茅台", price: 1588.50, change: 1.82, score: 78, signal: "偏多", sector: "食品饮料" },
@@ -35,6 +35,10 @@ export default function Home() {
   const [query, setQuery] = useState("");
   const [notice, setNotice] = useState("");
   const [dataTab, setDataTab] = useState("总览");
+  const [liveQuote, setLiveQuote] = useState<null | { price:number; open:number; high:number; low:number; change:number; changePct:number; turnover:number; pe:number|null; pb:number|null; marketCap:number|null; amount:number; source:string }>(null);
+  const [quoteState, setQuoteState] = useState<"loading"|"live"|"fallback">("loading");
+  const loadQuote = async () => { setQuoteState("loading"); try { const r=await fetch(`/api/quote?code=${activeStock.code}`); if(!r.ok)throw new Error(); const p=await r.json(); setLiveQuote(p.quote); setQuoteState("live"); } catch { setLiveQuote(null); setQuoteState("fallback"); } };
+  useEffect(()=>{loadQuote();const timer=setInterval(loadQuote,30000);return()=>clearInterval(timer)},[activeStock.code]);
 
   const filtered = useMemo(() => stocks.filter(s => `${s.code}${s.name}${s.sector}`.toLowerCase().includes(query.toLowerCase())).slice(0, 6), [query]);
   const contentMatches = useMemo(() => contentIndex.filter(x => `${x.title}${x.keys}`.toLowerCase().includes(query.toLowerCase())).slice(0, 4), [query]);
@@ -76,13 +80,13 @@ export default function Home() {
             <div className="gauge"><div><b>67</b><span>偏热</span></div></div>
             <div className="breadth"><span><i className="dot up-bg"></i>上涨 3,286</span><span><i className="dot down-bg"></i>下跌 1,746</span></div>
           </div>
-          <div className="side-foot"><p>数据更新时间</p><strong>2026-08-14 15:10</strong><small>演示数据 · 延时行情</small></div>
+          <div className="side-foot"><p>数据状态</p><strong>{quoteState === "live" ? "免费行情已连接" : quoteState === "loading" ? "正在更新行情" : "使用备用展示数据"}</strong><small>{quoteState === "live" ? "每 30 秒自动刷新" : "可稍后手动刷新"}</small></div>
         </aside>
 
         <section className="workspace">
           <div className="stock-heading">
             <div><div className="title-line"><h1>{activeStock.name}</h1><span>{activeStock.code}.{activeStock.exchange}</span><button onClick={() => setWatching(!watching)} className={watching ? "watching" : ""}>{watching ? "★ 已自选" : "☆ 加自选"}</button></div><p>白酒 · 沪深300成分 · 大盘价值</p></div>
-            <div className="quote"><strong>{activeStock.price.toFixed(2)}</strong><span className={activeStock.change >= 0 ? "up" : "down"}>+28.40　+{activeStock.change.toFixed(2)}%</span><small>今开 1,561.00　最高 1,596.80　最低 1,552.31</small></div>
+            <div className="quote"><strong>{(liveQuote?.price ?? activeStock.price).toFixed(2)}</strong><span className={(liveQuote?.changePct ?? activeStock.change) >= 0 ? "up" : "down"}>{(liveQuote?.change ?? 0) >= 0 ? "+" : ""}{(liveQuote?.change ?? 0).toFixed(2)}　{(liveQuote?.changePct ?? activeStock.change) >= 0 ? "+" : ""}{(liveQuote?.changePct ?? activeStock.change).toFixed(2)}%</span><small>今开 {(liveQuote?.open ?? 1561).toFixed(2)}　最高 {(liveQuote?.high ?? 1596.8).toFixed(2)}　最低 {(liveQuote?.low ?? 1552.31).toFixed(2)}　<button className="refresh-quote" onClick={loadQuote}>{quoteState === "loading" ? "更新中…" : "刷新"}</button></small></div>
           </div>
 
           <div className="index-strip">
@@ -137,7 +141,7 @@ export default function Home() {
             <div className="data-center-head"><div><span>DATA</span><div><h2>个股数据中心</h2><p>{activeStock.name} · 核心分析数据一站式查看</p></div></div><small>演示口径 · 2026-08-14</small></div>
             <div className="data-tabs">{["总览","估值","财务","资金","技术","事件"].map(x => <button key={x} onClick={() => setDataTab(x)} className={dataTab === x ? "active" : ""}>{x}</button>)}</div>
             {dataTab === "总览" && <div className="data-overview">
-              <div className="metric-grid">{[["总市值","1.98万亿","行业第 1"],["市盈率 TTM","24.6 倍","近5年 32%分位"],["市净率","8.7 倍","近5年 28%分位"],["股息率","3.12%","高于行业均值"],["ROE","34.8%","连续3年 >30%"],["主力净流入","+4.26亿","近5日 +8.7亿"]].map(x => <article key={x[0]}><span>{x[0]}</span><b>{x[1]}</b><small>{x[2]}</small></article>)}</div>
+              <div className="metric-grid">{[["总市值",liveQuote?.marketCap ? `${(liveQuote.marketCap/1e12).toFixed(2)}万亿` : "1.98万亿",quoteState === "live" ? "实时行情" : "备用数据"],["市盈率 TTM",liveQuote?.pe ? `${liveQuote.pe.toFixed(2)} 倍` : "24.6 倍","动态估值"],["市净率",liveQuote?.pb ? `${liveQuote.pb.toFixed(2)} 倍` : "8.7 倍","最新行情口径"],["换手率",liveQuote ? `${liveQuote.turnover.toFixed(2)}%` : "0.82%","盘中更新"],["成交额",liveQuote ? `${(liveQuote.amount/1e8).toFixed(2)}亿` : "—","盘中累计"],["行情状态",quoteState === "live" ? "已连接" : "备用模式",quoteState === "live" ? liveQuote?.source ?? "免费源" : "点击刷新重试"]].map(x => <article key={x[0]}><span>{x[0]}</span><b>{x[1]}</b><small>{x[2]}</small></article>)}</div>
               <div className="overview-bottom"><div><h3>分析快照</h3><p>盈利能力突出，估值处于历史中低位；短期资金与趋势信号共振，但需关注前高附近抛压。</p><div className="tags"><span>高ROE</span><span>现金流稳健</span><span>机构重仓</span><span>估值合理</span></div></div><div className="radar-list"><h3>六维评分</h3>{[["盈利",92],["成长",68],["估值",74],["资金",76],["趋势",84]].map(x=><div key={x[0]}><span>{x[0]}</span><i><em style={{width:`${x[1]}%`}}></em></i><b>{x[1]}</b></div>)}</div></div>
             </div>}
             {dataTab === "估值" && <div className="data-detail"><div className="detail-lead"><span>估值结论</span><h3>当前估值处于近 5 年偏低区间</h3><p>PE-TTM 为 24.6 倍，低于近 5 年中位数 31.8 倍；结合盈利稳定性，估值安全边际较去年改善。</p></div><div className="history-table"><div><span>指标</span><span>当前</span><span>5年分位</span><span>行业中位</span></div>{[["PE-TTM","24.6x","32%","27.8x"],["PB-MRQ","8.7x","28%","5.4x"],["PS-TTM","8.3x","35%","4.7x"],["股息率","3.12%","78%","2.36%"]].map(r=><div key={r[0]}>{r.map((v,i)=><b key={i}>{v}</b>)}</div>)}</div></div>}
@@ -145,7 +149,7 @@ export default function Home() {
             {dataTab === "资金" && <div className="data-detail"><div className="fund-flow">{[["今日主力净流入","+4.26亿","净占比 3.8%"],["近5日主力净流入","+8.70亿","连续3日流入"],["北向持股估算","5.82%","周环比 +0.12pct"],["融资余额","152.4亿","日增 +1.8亿"]].map(x=><article key={x[0]}><span>{x[0]}</span><b>{x[1]}</b><small>{x[2]}</small></article>)}</div><div className="flow-bars"><h3>分时资金强度</h3>{[42,58,51,72,68,84,76,91,83,88,79,86].map((v,i)=><i key={i} style={{height:`${v}%`}}></i>)}</div></div>}
             {dataTab === "技术" && <div className="data-detail"><div className="tech-table">{[["MA趋势","多头排列","强"],["MACD","金叉后扩张","偏多"],["RSI(14)","63.8","中性偏强"],["KDJ","J=81.2","短线偏热"],["成交量","1.24倍均量","温和放量"],["波动率","18.6%","中低"]].map(x=><div key={x[0]}><span>{x[0]}</span><b>{x[1]}</b><em>{x[2]}</em></div>)}</div><div className="key-level"><h3>关键价位</h3><p><span>压力二</span><b>1,665</b></p><p><span>压力一</span><b>1,620</b></p><p><span>现价</span><b className="up">1,588.50</b></p><p><span>支撑一</span><b>1,548</b></p></div></div>}
             {dataTab === "事件" && <div className="event-list">{[["08-13","机构调研","近一周获 34 家机构关注，核心议题为渠道库存与分红规划","中性偏多"],["08-12","公司公告","发布半年度主要经营数据，收入与利润增速符合预期","正面"],["08-09","行业数据","高端白酒批价保持稳定，终端动销环比改善","正面"],["08-07","风险提醒","消费复苏节奏仍有不确定性，关注渠道库存变化","关注"]].map(x=><article key={x[0]+x[1]}><time>{x[0]}</time><span>{x[1]}</span><p>{x[2]}</p><b>{x[3]}</b></article>)}</div>}
-            <div className="data-source-note">数据说明：当前为产品演示数据，用于展示分析框架；接入正式行情与财务数据接口后可自动更新。</div>
+            <div className="data-source-note">数据说明：报价、开高低、涨跌幅、成交额、换手率、PE、PB 与市值来自免费行情接口并每 30 秒刷新；财务、资金和事件模块正在分阶段接入，暂保留演示口径。免费数据仅供个人研究。</div>
           </section>
         </section>
       </div>
