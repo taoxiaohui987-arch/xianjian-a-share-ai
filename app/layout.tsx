@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import "./data.css";
 import "./quote.css";
+import "./chart.css";
 
 export const metadata: Metadata = {
   title: "先见量化｜A股 AI 预测分析平台",

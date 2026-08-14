@@ -21,8 +21,6 @@ const contentIndex = [
   { tab: "事件", title: "公告、研报与风险", keys: "公告 新闻 研报 机构观点 舆情 解禁 分红 风险" },
 ];
 
-const candles = [58,62,59,65,68,66,72,75,70,77,81,79,84,87,83,89,92,88,94,97,95,101,99,104,108,106,111,115,113,119,123,120,126,129,125,132,136,134,140,145];
-
 function Icon({ children }: { children: React.ReactNode }) {
   return <span className="icon" aria-hidden="true">{children}</span>;
 }
@@ -37,8 +35,12 @@ export default function Home() {
   const [dataTab, setDataTab] = useState("总览");
   const [liveQuote, setLiveQuote] = useState<null | { price:number; open:number; high:number; low:number; change:number; changePct:number; turnover:number; pe:number|null; pb:number|null; marketCap:number|null; amount:number; source:string }>(null);
   const [quoteState, setQuoteState] = useState<"loading"|"live"|"fallback">("loading");
+  const [history, setHistory] = useState<null|{points:Array<{date:string;open:number;high:number;low:number;close:number;volume:number}>;ma5:number|null;ma10:number|null;ma20:number|null;forecast:{mid:number;low:number;high:number};source:string}>(null);
+  const [historyState,setHistoryState]=useState<"loading"|"live"|"error">("loading");
   const loadQuote = async () => { setQuoteState("loading"); try { const r=await fetch(`/api/quote?code=${activeStock.code}`); if(!r.ok)throw new Error(); const p=await r.json(); setLiveQuote(p.quote); setQuoteState("live"); } catch { setLiveQuote(null); setQuoteState("fallback"); } };
   useEffect(()=>{loadQuote();const timer=setInterval(loadQuote,30000);return()=>clearInterval(timer)},[activeStock.code]);
+  useEffect(()=>{let active=true;setHistoryState("loading");fetch(`/api/history?code=${activeStock.code}&range=${encodeURIComponent(range)}`).then(r=>{if(!r.ok)throw new Error();return r.json()}).then(data=>{if(active){setHistory(data);setHistoryState("live")}}).catch(()=>{if(active){setHistory(null);setHistoryState("error")}});return()=>{active=false}},[activeStock.code,range]);
+  const chartScale=useMemo(()=>{if(!history?.points.length)return null;const lows=history.points.map(p=>p.low),highs=history.points.map(p=>p.high),min=Math.min(...lows),max=Math.max(...highs),pad=(max-min)*.08||1;return{min:min-pad,max:max+pad}},[history]);
 
   const filtered = useMemo(() => stocks.filter(s => `${s.code}${s.name}${s.sector}`.toLowerCase().includes(query.toLowerCase())).slice(0, 6), [query]);
   const contentMatches = useMemo(() => contentIndex.filter(x => `${x.title}${x.keys}`.toLowerCase().includes(query.toLowerCase())).slice(0, 4), [query]);
@@ -99,15 +101,16 @@ export default function Home() {
                 <div className="range-tabs">{["分时","日K","周K","月K"].map(x => <button key={x} onClick={() => setRange(x)} className={range===x?"active":""}>{x}</button>)}</div>
                 <div className="indicators"><button className="active">MA</button><button>EMA</button><button>MACD</button><button>更多⌄</button></div>
               </div>
-              <div className="legend"><span>MA5 <b>1,575.62</b></span><span>MA10 <b>1,552.80</b></span><span>MA20 <b>1,528.36</b></span></div>
+              <div className="legend"><span>MA5 <b>{history?.ma5?.toFixed(2)??"—"}</b></span><span>MA10 <b>{history?.ma10?.toFixed(2)??"—"}</b></span><span>MA20 <b>{history?.ma20?.toFixed(2)??"—"}</b></span><small>{historyState==="live"?`${history?.source} · 实际行情`:historyState==="loading"?"正在加载实际行情":"数据源暂时不可用"}</small></div>
               <div className="chart" aria-label={`${activeStock.name}${range}价格走势图`}>
-                <div className="price-axis"><span>1,620</span><span>1,580</span><span>1,540</span><span>1,500</span><span>1,460</span></div>
+                {chartScale&&<div className="price-axis"><span>{chartScale.max.toFixed(0)}</span><span>{(chartScale.min+(chartScale.max-chartScale.min)*.75).toFixed(0)}</span><span>{(chartScale.min+(chartScale.max-chartScale.min)*.5).toFixed(0)}</span><span>{(chartScale.min+(chartScale.max-chartScale.min)*.25).toFixed(0)}</span><span>{chartScale.min.toFixed(0)}</span></div>}
                 <div className="grid-lines">{[0,1,2,3,4].map(x=><i key={x}></i>)}</div>
-                <div className="candles">{candles.map((v,i) => <div className={`candle ${i%4===0||i%7===0?'fall':'rise'}`} key={i} style={{height:`${22+(v%31)}px`,bottom:`${12+(v-55)*1.22}px`}}><i></i></div>)}</div>
-                <div className="forecast-zone"><span>AI 预测区间</span><div className="forecast-line"></div><b>1,642</b></div>
-                <div className="date-axis"><span>07/01</span><span>07/11</span><span>07/22</span><span>08/01</span><span>08/14</span><span>08/21</span></div>
+                {historyState==="loading"&&<div className="chart-message">正在载入 {activeStock.name} {range}…</div>}{historyState==="error"&&<div className="chart-message error">历史行情暂时不可用，请稍后重试</div>}
+                {history&&chartScale&&<div className="candles live-candles">{history.points.map((p,i)=>{const span=chartScale.max-chartScale.min,body=Math.max(2,Math.abs(p.close-p.open)/span*190),bottom=(Math.min(p.open,p.close)-chartScale.min)/span*190+20,wick=Math.max(body,(p.high-p.low)/span*190);return <div className={`candle ${p.close>=p.open?'rise':'fall'}`} key={`${p.date}-${i}`} title={`${p.date} 开${p.open.toFixed(2)} 高${p.high.toFixed(2)} 低${p.low.toFixed(2)} 收${p.close.toFixed(2)}`} style={{height:`${body}px`,bottom:`${bottom}px`}}><i style={{height:`${wick}px`,top:`${-(wick-body)/2}px`}}></i></div>})}</div>}
+                {history&&<div className="forecast-zone"><span>统计参考区间</span><div className="forecast-line"></div><b>{history.forecast.mid.toFixed(0)}</b></div>}
+                {history&&<div className="date-axis">{[0,.2,.4,.6,.8,1].map((x,i)=><span key={i}>{history.points[Math.min(history.points.length-1,Math.floor((history.points.length-1)*x))]?.date}</span>)}</div>}
               </div>
-              <div className="volume"><span>VOL 18.6万</span>{candles.map((v,i)=><i key={i} className={i%4===0||i%7===0?'down-bg':'up-bg'} style={{height:`${6+v%25}px`}}></i>)}</div>
+              <div className="volume"><span>VOL {history?.points.at(-1)?.volume ? `${(history.points.at(-1)!.volume/10000).toFixed(1)}万` : "—"}</span>{history&&history.points.map((p,i)=><i key={i} className={p.close>=p.open?'up-bg':'down-bg'} style={{height:`${6+(p.volume/Math.max(...history.points.map(x=>x.volume)))*28}px`}}></i>)}</div>
             </section>
 
             <aside className="signal-card card">
