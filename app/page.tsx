@@ -3,10 +3,22 @@
 import { useMemo, useState } from "react";
 
 const stocks = [
-  { code: "600519", exchange: "SH", name: "贵州茅台", price: 1588.50, change: 1.82, score: 78, signal: "偏多" },
-  { code: "300750", exchange: "SZ", name: "宁德时代", price: 268.36, change: 2.41, score: 82, signal: "偏多" },
-  { code: "601318", exchange: "SH", name: "中国平安", price: 47.82, change: -0.64, score: 55, signal: "中性" },
-  { code: "000858", exchange: "SZ", name: "五粮液", price: 131.20, change: 1.16, score: 71, signal: "关注" },
+  { code: "600519", exchange: "SH", name: "贵州茅台", price: 1588.50, change: 1.82, score: 78, signal: "偏多", sector: "食品饮料" },
+  { code: "300750", exchange: "SZ", name: "宁德时代", price: 268.36, change: 2.41, score: 82, signal: "偏多", sector: "电力设备" },
+  { code: "601318", exchange: "SH", name: "中国平安", price: 47.82, change: -0.64, score: 55, signal: "中性", sector: "非银金融" },
+  { code: "000858", exchange: "SZ", name: "五粮液", price: 131.20, change: 1.16, score: 71, signal: "关注", sector: "食品饮料" },
+  { code: "600036", exchange: "SH", name: "招商银行", price: 42.64, change: 0.92, score: 69, signal: "关注", sector: "银行" },
+  { code: "002594", exchange: "SZ", name: "比亚迪", price: 326.80, change: 2.08, score: 76, signal: "偏多", sector: "汽车" },
+  { code: "000333", exchange: "SZ", name: "美的集团", price: 76.18, change: -0.22, score: 63, signal: "中性", sector: "家用电器" },
+  { code: "688981", exchange: "SH", name: "中芯国际", price: 86.45, change: 3.16, score: 81, signal: "偏多", sector: "电子" },
+];
+
+const contentIndex = [
+  { tab: "估值", title: "估值与历史分位", keys: "PE PB 市盈率 市净率 估值 股息率" },
+  { tab: "财务", title: "盈利质量与成长", keys: "ROE 营收 净利润 毛利率 现金流 财报" },
+  { tab: "资金", title: "主力与北向资金", keys: "北向资金 主力 融资融券 大单 资金流向" },
+  { tab: "技术", title: "技术指标与趋势", keys: "MACD RSI KDJ 均线 MA 技术面 支撑 压力" },
+  { tab: "事件", title: "公告、研报与风险", keys: "公告 新闻 研报 机构观点 舆情 解禁 分红 风险" },
 ];
 
 const candles = [58,62,59,65,68,66,72,75,70,77,81,79,84,87,83,89,92,88,94,97,95,101,99,104,108,106,111,115,113,119,123,120,126,129,125,132,136,134,140,145];
@@ -22,9 +34,12 @@ export default function Home() {
   const [watching, setWatching] = useState(true);
   const [query, setQuery] = useState("");
   const [notice, setNotice] = useState("");
+  const [dataTab, setDataTab] = useState("总览");
 
-  const filtered = useMemo(() => stocks.filter(s => `${s.code}${s.name}`.toLowerCase().includes(query.toLowerCase())), [query]);
+  const filtered = useMemo(() => stocks.filter(s => `${s.code}${s.name}${s.sector}`.toLowerCase().includes(query.toLowerCase())).slice(0, 6), [query]);
+  const contentMatches = useMemo(() => contentIndex.filter(x => `${x.title}${x.keys}`.toLowerCase().includes(query.toLowerCase())).slice(0, 4), [query]);
   const selectStock = (stock: typeof stocks[0]) => { setActiveStock(stock); setQuery(""); setNotice(`已切换至 ${stock.name}`); setTimeout(() => setNotice(""), 1800); };
+  const openContent = (target: string, title: string) => { setDataTab(target); setQuery(""); setNotice(`已打开：${title}`); setTimeout(() => setNotice(""), 1800); };
 
   return (
     <main className="app-shell">
@@ -42,8 +57,12 @@ export default function Home() {
       <div className="page-grid">
         <aside className="sidebar">
           <div className="search-wrap">
-            <Icon>⌕</Icon><input value={query} onChange={e => setQuery(e.target.value)} placeholder="搜索股票 / 代码" aria-label="搜索股票或代码" />
-            {query && <div className="search-results">{filtered.map(s => <button key={s.code} onClick={() => selectStock(s)}><span>{s.name}<small>{s.code}.{s.exchange}</small></span><b>{s.price.toFixed(2)}</b></button>)}</div>}
+            <Icon>⌕</Icon><input value={query} onChange={e => setQuery(e.target.value)} placeholder="搜股票、指标或研报" aria-label="搜索股票、指标或分析内容" />
+            {query && <div className="search-results">
+              {filtered.length > 0 && <label>股票</label>}{filtered.map(s => <button key={s.code} onClick={() => selectStock(s)}><span>{s.name}<small>{s.code}.{s.exchange} · {s.sector}</small></span><b>{s.price.toFixed(2)}</b></button>)}
+              {contentMatches.length > 0 && <label>分析内容</label>}{contentMatches.map(x => <button key={x.tab} onClick={() => openContent(x.tab, x.title)}><span>{x.title}<small>{x.keys.split(" ").slice(0,4).join(" · ")}</small></span><b className="search-arrow">→</b></button>)}
+              {filtered.length === 0 && contentMatches.length === 0 && <p>未找到结果，试试“ROE”“北向资金”或股票代码</p>}
+            </div>}
           </div>
           <div className="side-title"><span>我的自选</span><button aria-label="添加自选">＋</button></div>
           <div className="watchlist">
@@ -113,6 +132,21 @@ export default function Home() {
               <p className="disclaimer">历史回测不代表未来收益。预测结果仅供研究参考，不构成任何投资建议。</p>
             </section>
           </div>
+
+          <section className="data-center card" id="data-center">
+            <div className="data-center-head"><div><span>DATA</span><div><h2>个股数据中心</h2><p>{activeStock.name} · 核心分析数据一站式查看</p></div></div><small>演示口径 · 2026-08-14</small></div>
+            <div className="data-tabs">{["总览","估值","财务","资金","技术","事件"].map(x => <button key={x} onClick={() => setDataTab(x)} className={dataTab === x ? "active" : ""}>{x}</button>)}</div>
+            {dataTab === "总览" && <div className="data-overview">
+              <div className="metric-grid">{[["总市值","1.98万亿","行业第 1"],["市盈率 TTM","24.6 倍","近5年 32%分位"],["市净率","8.7 倍","近5年 28%分位"],["股息率","3.12%","高于行业均值"],["ROE","34.8%","连续3年 >30%"],["主力净流入","+4.26亿","近5日 +8.7亿"]].map(x => <article key={x[0]}><span>{x[0]}</span><b>{x[1]}</b><small>{x[2]}</small></article>)}</div>
+              <div className="overview-bottom"><div><h3>分析快照</h3><p>盈利能力突出，估值处于历史中低位；短期资金与趋势信号共振，但需关注前高附近抛压。</p><div className="tags"><span>高ROE</span><span>现金流稳健</span><span>机构重仓</span><span>估值合理</span></div></div><div className="radar-list"><h3>六维评分</h3>{[["盈利",92],["成长",68],["估值",74],["资金",76],["趋势",84]].map(x=><div key={x[0]}><span>{x[0]}</span><i><em style={{width:`${x[1]}%`}}></em></i><b>{x[1]}</b></div>)}</div></div>
+            </div>}
+            {dataTab === "估值" && <div className="data-detail"><div className="detail-lead"><span>估值结论</span><h3>当前估值处于近 5 年偏低区间</h3><p>PE-TTM 为 24.6 倍，低于近 5 年中位数 31.8 倍；结合盈利稳定性，估值安全边际较去年改善。</p></div><div className="history-table"><div><span>指标</span><span>当前</span><span>5年分位</span><span>行业中位</span></div>{[["PE-TTM","24.6x","32%","27.8x"],["PB-MRQ","8.7x","28%","5.4x"],["PS-TTM","8.3x","35%","4.7x"],["股息率","3.12%","78%","2.36%"]].map(r=><div key={r[0]}>{r.map((v,i)=><b key={i}>{v}</b>)}</div>)}</div></div>}
+            {dataTab === "财务" && <div className="data-detail"><div className="growth-cards">{[["营业收入","1,502.6亿","+15.7%"],["归母净利润","747.3亿","+17.1%"],["毛利率","91.8%","+0.3pct"],["经营现金流","665.2亿","+21.4%"]].map(x=><article key={x[0]}><span>{x[0]}</span><b>{x[1]}</b><em>{x[2]}</em></article>)}</div><div className="quality-note"><h3>盈利质量</h3><p>营收与利润保持双位数增长，经营现金流增速高于净利润增速，利润含金量较高；合同负债变化是下一期业绩的重要先行指标。</p></div></div>}
+            {dataTab === "资金" && <div className="data-detail"><div className="fund-flow">{[["今日主力净流入","+4.26亿","净占比 3.8%"],["近5日主力净流入","+8.70亿","连续3日流入"],["北向持股估算","5.82%","周环比 +0.12pct"],["融资余额","152.4亿","日增 +1.8亿"]].map(x=><article key={x[0]}><span>{x[0]}</span><b>{x[1]}</b><small>{x[2]}</small></article>)}</div><div className="flow-bars"><h3>分时资金强度</h3>{[42,58,51,72,68,84,76,91,83,88,79,86].map((v,i)=><i key={i} style={{height:`${v}%`}}></i>)}</div></div>}
+            {dataTab === "技术" && <div className="data-detail"><div className="tech-table">{[["MA趋势","多头排列","强"],["MACD","金叉后扩张","偏多"],["RSI(14)","63.8","中性偏强"],["KDJ","J=81.2","短线偏热"],["成交量","1.24倍均量","温和放量"],["波动率","18.6%","中低"]].map(x=><div key={x[0]}><span>{x[0]}</span><b>{x[1]}</b><em>{x[2]}</em></div>)}</div><div className="key-level"><h3>关键价位</h3><p><span>压力二</span><b>1,665</b></p><p><span>压力一</span><b>1,620</b></p><p><span>现价</span><b className="up">1,588.50</b></p><p><span>支撑一</span><b>1,548</b></p></div></div>}
+            {dataTab === "事件" && <div className="event-list">{[["08-13","机构调研","近一周获 34 家机构关注，核心议题为渠道库存与分红规划","中性偏多"],["08-12","公司公告","发布半年度主要经营数据，收入与利润增速符合预期","正面"],["08-09","行业数据","高端白酒批价保持稳定，终端动销环比改善","正面"],["08-07","风险提醒","消费复苏节奏仍有不确定性，关注渠道库存变化","关注"]].map(x=><article key={x[0]+x[1]}><time>{x[0]}</time><span>{x[1]}</span><p>{x[2]}</p><b>{x[3]}</b></article>)}</div>}
+            <div className="data-source-note">数据说明：当前为产品演示数据，用于展示分析框架；接入正式行情与财务数据接口后可自动更新。</div>
+          </section>
         </section>
       </div>
       {notice && <div className="toast">✓ {notice}</div>}
