@@ -21,9 +21,13 @@ const contentIndex = [
   { tab: "事件", title: "公告、研报与风险", keys: "公告 新闻 研报 机构观点 舆情 解禁 分红 风险" },
 ];
 
-const API_BASE = typeof window !== "undefined" && window.location.hostname.endsWith("github.io")
+const IS_GITHUB = typeof window !== "undefined" && window.location.hostname.endsWith("github.io");
+const API_BASE = IS_GITHUB
   ? "https://xianjian-a-share-ai.taoxiaohui987.chatgpt.site"
   : "";
+type SnapshotStock={code:string;exchange:"SH"|"SZ"|"BJ";name:string;price:number|null;changePct:number|null;change:number|null;open:number|null;high:number|null;low:number|null;amount:number|null;turnover:number|null;pe:number|null;pb:number|null;marketCap:number|null;source:string};
+let marketPromise:Promise<{updatedAt:string;stocks:SnapshotStock[]}>|null=null;
+const loadMarket=()=>marketPromise??=fetch(new URL("data/market.json",document.baseURI)).then(r=>{if(!r.ok)throw new Error();return r.json()});
 
 function Icon({ children }: { children: React.ReactNode }) {
   return <span className="icon" aria-hidden="true">{children}</span>;
@@ -43,10 +47,10 @@ export default function Home() {
   const [quoteState, setQuoteState] = useState<"loading"|"live"|"fallback">("loading");
   const [history, setHistory] = useState<null|{points:Array<{date:string;open:number;high:number;low:number;close:number;volume:number}>;ma5:number|null;ma10:number|null;ma20:number|null;forecast:{mid:number;low:number;high:number};source:string}>(null);
   const [historyState,setHistoryState]=useState<"loading"|"live"|"error">("loading");
-  const loadQuote = async () => { setQuoteState("loading"); try { const r=await fetch(`${API_BASE}/api/quote?code=${activeStock.code}`); if(!r.ok)throw new Error(); const p=await r.json(); setLiveQuote(p.quote); setQuoteState("live"); } catch { setLiveQuote(null); setQuoteState("fallback"); } };
+  const loadQuote = async () => { setQuoteState("loading"); try { if(IS_GITHUB){const p=await loadMarket(),q=p.stocks.find(x=>x.code===activeStock.code);if(!q||q.price==null)throw new Error();setLiveQuote({price:q.price,open:q.open??0,high:q.high??0,low:q.low??0,change:q.change??0,changePct:q.changePct??0,turnover:q.turnover??0,pe:q.pe,pb:q.pb,marketCap:q.marketCap,amount:q.amount??0,source:`${q.source} · 约15分钟更新`});setQuoteState("live");return}const r=await fetch(`${API_BASE}/api/quote?code=${activeStock.code}`); if(!r.ok)throw new Error(); const p=await r.json(); setLiveQuote(p.quote); setQuoteState("live"); } catch { setLiveQuote(null); setQuoteState("fallback"); } };
   useEffect(()=>{loadQuote();const timer=setInterval(loadQuote,30000);return()=>clearInterval(timer)},[activeStock.code]);
   useEffect(()=>{let active=true;setHistoryState("loading");fetch(`${API_BASE}/api/history?code=${activeStock.code}&range=${encodeURIComponent(range)}`).then(r=>{if(!r.ok)throw new Error();return r.json()}).then(data=>{if(active){setHistory(data);setHistoryState("live")}}).catch(()=>{if(active){setHistory(null);setHistoryState("error")}});return()=>{active=false}},[activeStock.code,range]);
-  useEffect(()=>{if(!query.trim()){setRemoteResults([]);setSearching(false);return}const timer=setTimeout(()=>{setSearching(true);fetch(`${API_BASE}/api/search?q=${encodeURIComponent(query)}`).then(r=>r.json()).then(p=>setRemoteResults(p.results??[])).catch(()=>setRemoteResults([])).finally(()=>setSearching(false))},250);return()=>clearTimeout(timer)},[query]);
+  useEffect(()=>{if(!query.trim()){setRemoteResults([]);setSearching(false);return}const timer=setTimeout(()=>{setSearching(true);(IS_GITHUB?loadMarket().then(p=>({results:p.stocks.filter(s=>`${s.code}${s.name}`.toLowerCase().includes(query.toLowerCase())).slice(0,12).map(s=>({code:s.code,name:s.name,exchange:s.exchange,market:"A股"}))})):fetch(`${API_BASE}/api/search?q=${encodeURIComponent(query)}`).then(r=>r.json())).then(p=>setRemoteResults(p.results??[])).catch(()=>setRemoteResults([])).finally(()=>setSearching(false))},250);return()=>clearTimeout(timer)},[query]);
   const chartScale=useMemo(()=>{if(!history?.points.length)return null;const lows=history.points.map(p=>p.low),highs=history.points.map(p=>p.high),min=Math.min(...lows),max=Math.max(...highs),pad=(max-min)*.08||1;return{min:min-pad,max:max+pad}},[history]);
 
   const filtered = useMemo(() => stocks.filter(s => `${s.code}${s.name}${s.sector}`.toLowerCase().includes(query.toLowerCase())).slice(0, 6), [query]);
