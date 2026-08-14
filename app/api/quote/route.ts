@@ -1,5 +1,5 @@
 type Quote = { code:string; name:string; price:number; preClose:number; open:number; high:number; low:number; change:number; changePct:number; volume:number; amount:number; turnover:number; pe:number|null; pb:number|null; marketCap:number|null; floatMarketCap:number|null; amplitude:number; updatedAt:string; source:string };
-const marketCode=(code:string)=>/^(5|6|9)/.test(code)?`sh${code}`:`sz${code}`;
+const marketCode=(code:string)=>/^(4|8|9)/.test(code)?`bj${code}`:/^(5|6)/.test(code)?`sh${code}`:`sz${code}`;
 const num=(value:string)=>{const n=Number(value);return Number.isFinite(n)?n:0};
 export async function GET(request:Request){
   const code=new URL(request.url).searchParams.get("code")?.trim()??"";

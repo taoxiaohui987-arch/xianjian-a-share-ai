@@ -31,6 +31,8 @@ export default function Home() {
   const [tab, setTab] = useState("AI预测");
   const [watching, setWatching] = useState(true);
   const [query, setQuery] = useState("");
+  const [remoteResults,setRemoteResults]=useState<Array<{code:string;name:string;exchange:"SH"|"SZ"|"BJ";market:string}>>([]);
+  const [searching,setSearching]=useState(false);
   const [notice, setNotice] = useState("");
   const [dataTab, setDataTab] = useState("总览");
   const [liveQuote, setLiveQuote] = useState<null | { price:number; open:number; high:number; low:number; change:number; changePct:number; turnover:number; pe:number|null; pb:number|null; marketCap:number|null; amount:number; source:string }>(null);
@@ -40,11 +42,13 @@ export default function Home() {
   const loadQuote = async () => { setQuoteState("loading"); try { const r=await fetch(`/api/quote?code=${activeStock.code}`); if(!r.ok)throw new Error(); const p=await r.json(); setLiveQuote(p.quote); setQuoteState("live"); } catch { setLiveQuote(null); setQuoteState("fallback"); } };
   useEffect(()=>{loadQuote();const timer=setInterval(loadQuote,30000);return()=>clearInterval(timer)},[activeStock.code]);
   useEffect(()=>{let active=true;setHistoryState("loading");fetch(`/api/history?code=${activeStock.code}&range=${encodeURIComponent(range)}`).then(r=>{if(!r.ok)throw new Error();return r.json()}).then(data=>{if(active){setHistory(data);setHistoryState("live")}}).catch(()=>{if(active){setHistory(null);setHistoryState("error")}});return()=>{active=false}},[activeStock.code,range]);
+  useEffect(()=>{if(!query.trim()){setRemoteResults([]);setSearching(false);return}const timer=setTimeout(()=>{setSearching(true);fetch(`/api/search?q=${encodeURIComponent(query)}`).then(r=>r.json()).then(p=>setRemoteResults(p.results??[])).catch(()=>setRemoteResults([])).finally(()=>setSearching(false))},250);return()=>clearTimeout(timer)},[query]);
   const chartScale=useMemo(()=>{if(!history?.points.length)return null;const lows=history.points.map(p=>p.low),highs=history.points.map(p=>p.high),min=Math.min(...lows),max=Math.max(...highs),pad=(max-min)*.08||1;return{min:min-pad,max:max+pad}},[history]);
 
   const filtered = useMemo(() => stocks.filter(s => `${s.code}${s.name}${s.sector}`.toLowerCase().includes(query.toLowerCase())).slice(0, 6), [query]);
   const contentMatches = useMemo(() => contentIndex.filter(x => `${x.title}${x.keys}`.toLowerCase().includes(query.toLowerCase())).slice(0, 4), [query]);
   const selectStock = (stock: typeof stocks[0]) => { setActiveStock(stock); setQuery(""); setNotice(`已切换至 ${stock.name}`); setTimeout(() => setNotice(""), 1800); };
+  const selectRemote=(stock:{code:string;name:string;exchange:"SH"|"SZ"|"BJ";market:string})=>selectStock({code:stock.code,name:stock.name,exchange:stock.exchange,price:0,change:0,score:60,signal:"分析中",sector:stock.market});
   const openContent = (target: string, title: string) => { setDataTab(target); setQuery(""); setNotice(`已打开：${title}`); setTimeout(() => setNotice(""), 1800); };
 
   return (
@@ -65,9 +69,10 @@ export default function Home() {
           <div className="search-wrap">
             <Icon>⌕</Icon><input value={query} onChange={e => setQuery(e.target.value)} placeholder="搜股票、指标或研报" aria-label="搜索股票、指标或分析内容" />
             {query && <div className="search-results">
-              {filtered.length > 0 && <label>股票</label>}{filtered.map(s => <button key={s.code} onClick={() => selectStock(s)}><span>{s.name}<small>{s.code}.{s.exchange} · {s.sector}</small></span><b>{s.price.toFixed(2)}</b></button>)}
+              <label>全市场股票 {searching&&<em>搜索中…</em>}</label>{remoteResults.map(s => <button key={`${s.exchange}-${s.code}`} onClick={() => selectRemote(s)}><span>{s.name}<small>{s.code}.{s.exchange} · {s.market}</small></span><b className="search-arrow">→</b></button>)}
+              {remoteResults.length===0&&filtered.map(s => <button key={s.code} onClick={() => selectStock(s)}><span>{s.name}<small>{s.code}.{s.exchange} · {s.sector}</small></span><b>{s.price.toFixed(2)}</b></button>)}
               {contentMatches.length > 0 && <label>分析内容</label>}{contentMatches.map(x => <button key={x.tab} onClick={() => openContent(x.tab, x.title)}><span>{x.title}<small>{x.keys.split(" ").slice(0,4).join(" · ")}</small></span><b className="search-arrow">→</b></button>)}
-              {filtered.length === 0 && contentMatches.length === 0 && <p>未找到结果，试试“ROE”“北向资金”或股票代码</p>}
+              {!searching&&remoteResults.length === 0&&filtered.length === 0 && contentMatches.length === 0 && <p>未找到结果，试试完整股票代码或名称</p>}
             </div>}
           </div>
           <div className="side-title"><span>我的自选</span><button aria-label="添加自选">＋</button></div>

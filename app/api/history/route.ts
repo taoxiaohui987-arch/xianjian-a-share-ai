@@ -1,5 +1,5 @@
 type Point={time:number;date:string;open:number;high:number;low:number;close:number;volume:number};
-const suffix=(code:string)=>/^(5|6)/.test(code)?`${code}.SS`:`${code}.SZ`;
+const suffix=(code:string)=>/^(4|8|9)/.test(code)?`${code}.BJ`:/^(5|6)/.test(code)?`${code}.SS`:`${code}.SZ`;
 const configs:Record<string,{range:string;interval:string}>={"分时":{range:"1d",interval:"5m"},"日K":{range:"6mo",interval:"1d"},"周K":{range:"2y",interval:"1wk"},"月K":{range:"5y",interval:"1mo"}};
 const average=(items:Point[],period:number)=>items.length<period?null:items.slice(-period).reduce((sum,p)=>sum+p.close,0)/period;
 export async function GET(request:Request){
