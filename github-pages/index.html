@@ -7,18 +7,19 @@
   <meta name="description" content="先见量化 A股 AI 预测分析平台" />
   <title>先见量化｜A股 AI 预测分析平台</title>
   <link rel="stylesheet" href="style.css" />
+  <style>.searching{padding:15px;color:#778687;text-align:center}.rise-text{color:#e25252!important}.fall-text{color:#0a9f73!important}.full-version{position:fixed;right:14px;bottom:78px;background:#0d2b2c;color:#fff;text-decoration:none;padding:9px 12px;border-radius:18px;font-size:10px;z-index:12;box-shadow:0 5px 18px #0002}</style>
 </head>
 <body>
-  <header><div class="logo">先</div><div><b>先见量化</b><small>AI STOCK LAB</small></div><span class="status"><i></i>沪深 · 已收盘</span></header>
+  <header><div class="logo">先</div><div><b>先见量化</b><small>AI STOCK LAB</small></div><span class="status" id="market-status"><i></i>实时数据连接中</span></header>
   <main>
     <section class="search"><span>⌕</span><input id="search" placeholder="搜索股票 / 代码" autocomplete="off" /><div id="results"></div></section>
     <section class="indices">
-      <article><small>上证指数</small><b>3,214.68</b><em>+0.74%</em></article><article><small>深证成指</small><b>10,598.12</b><em>+1.21%</em></article><article><small>创业板指</small><b>2,182.45</b><em>+1.86%</em></article>
+      <article><small>上证指数</small><b>—</b><em>加载中</em></article><article><small>深证成指</small><b>—</b><em>加载中</em></article><article><small>创业板指</small><b>—</b><em>加载中</em></article>
     </section>
-    <section class="stock-head"><div><h1 id="name">贵州茅台</h1><span id="code">600519.SH</span></div><button id="watch">★ 已自选</button><strong id="price">1,588.50</strong><em id="change">+28.40　+1.82%</em><small>演示行情 · 更新时间 15:10</small></section>
+    <section class="stock-head"><div><h1 id="name">贵州茅台</h1><span id="code">600519.SH</span></div><button id="watch">★ 已自选</button><strong id="price">加载中</strong><em id="change">—</em><small id="updated">正在连接免费行情源…</small></section>
     <section class="card chart-card">
       <nav class="ranges"><button>分时</button><button class="active">日K</button><button>周K</button><button>月K</button></nav>
-      <div class="legend"><span>MA5 <b>1,575.62</b></span><span>MA10 <b>1,552.80</b></span><span>MA20 <b>1,528.36</b></span></div>
+      <div class="legend"><span>MA5 <b id="ma5">—</b></span><span>MA10 <b id="ma10">—</b></span><span>MA20 <b id="ma20">—</b></span></div>
       <div class="chart" id="chart"><div class="forecast"><span>AI 预测</span></div></div>
       <div class="dates"><span>07/01</span><span>07/22</span><span>08/14</span><span>08/21</span></div>
     </section>
@@ -36,7 +37,7 @@
     <section class="card model"><h2>模型近期表现</h2><div><article><span>方向准确率</span><b>64.8%</b><small>高于基准 8.2%</small></article><article><span>预测覆盖</span><b>87</b><small>个交易信号</small></article></div><p>历史回测不代表未来收益，不构成任何投资建议。</p></section>
   </main>
   <footer><button class="active"><b>⌁</b>行情</button><button><b>◇</b>雷达</button><button><b>▥</b>回测</button><button><b>○</b>我的</button></footer>
-  <div id="toast"></div>
+  <div id="toast"></div><a class="full-version" href="https://xianjian-a-share-ai.taoxiaohui987.chatgpt.site/" target="_blank" rel="noopener">打开电脑完整版 ↗</a>
   <script src="app.js"></script>
 </body>
 </html>
